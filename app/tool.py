@@ -1,7 +1,7 @@
 import os
 from langchain_chroma import Chroma 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain.tools.retriever import create_retriever_tool
+from langchain_classic.tools.retriever import create_retriever_tool
 from langchain_openai import OpenAIEmbeddings
 
 from dotenv import load_dotenv
@@ -34,6 +34,7 @@ retriever = vectorstore.as_retriever()
 retriever_tool = create_retriever_tool(retriever, name="agriculture", description="useful for answering questions about agriculture")
 
 result = retriever_tool.invoke({"query": "types of reward hacking"})
+
 
 
 print(result)
