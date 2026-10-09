@@ -1,59 +1,71 @@
 # Agriculture Chatbot
 
-A simple Streamlit-based chatbot interface for interacting with an agriculture knowledge base using a retrieval-augmented agent.
+A Streamlit chatbot that answers questions about agriculture from a document knowledge base, using a retrieval-augmented LangGraph agent.
+
+Forked from [kush2022/vibration_analysis_rag](https://github.com/kush2022/vibration_analysis_rag).
 
 ## Features
 
-- Chatbot interface powered by Streamlit
-- Uses a retrieval tool as the only knowledge source (vectorstore)
-- If information is not in the knowledge base, the bot responds accordingly
-- Loading animation while generating responses
+- Chat interface built with Streamlit, with streamed responses
+- Answers come only from the knowledge base (a Chroma vector store)
+- Follow-up questions work: the whole conversation is sent to the agent
+- If the information is not in the knowledge base, the bot says so
 
 ## Setup
 
-1. **Clone the repository** and navigate to the project directory.
+1. **Clone the repository** and move into the project directory.
 
 2. **Install dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-3. **Set up environment variables**:
-    - Create a `.env` file in the root directory.
-    - Add your OpenAI API key:
-      ```
-      OPENAI_API_KEY=your_openai_api_key
-      ```
-    - (Optional) Add other keys as needed for embeddings.
+3. **Set up environment variables**. Create a `.env` file in the project root:
+    ```
+    OPENAI_API_KEY=your_openai_api_key
+    ```
+    The key is used for both the chat model (`gpt-4o-mini`) and the embeddings (`text-embedding-3-large`).
 
-4. **Prepare the vectorstore**:
-    - Ensure the `app/agriculture_chromaV2/` directory contains the vectorstore files.
-    - The retriever tool is configured in `app/tool.py`.
+4. **Build the vector store**. Put your source documents in `app/AgricultureNB_LM/` (or pass another folder) and run:
+    ```bash
+    python app/rag_pipeline.py
+    # or: python app/rag_pipeline.py path/to/documents
+    ```
+    This creates `app/agriculture_chromaV2/`. Documents are embedded in small batches, and a batch that hits a rate limit is retried.
 
-## Running the App
+    If your documents are `.txt` or `.docx`, `python app/convert_to_pdf.py path/to/documents` converts them to PDF first.
 
-Start the Streamlit app with:
+## Running the app
 
 ```bash
 streamlit run app/main.py
 ```
 
-The chatbot interface will open in your browser. Type your questions about agriculture; the bot will answer using only the knowledge base.
+For a terminal version of the same agent:
 
-## Project Structure
+```bash
+python app/agent.py
+```
 
-- `app/main.py` — Streamlit chatbot interface
-- `app/agent.py` — CLI agent (for testing/debugging)
-- `app/tool.py` — Retriever tool and vectorstore setup
-- `requirements.txt` — Python dependencies
-- `.env` — Environment variables (not tracked in git)
-- `.gitignore` — Files and directories to ignore in git
+## Project structure
 
-## Notes
+- `app/main.py`: Streamlit chat interface
+- `app/agent.py`: agent definition and a command-line chat loop
+- `app/tool.py`: retriever tool
+- `app/vectorstore.py`: embedding model and vector store settings, shared by indexing and retrieval
+- `app/rag_pipeline.py`: builds the vector store from a folder of documents
+- `app/convert_to_pdf.py`: converts `.txt` and `.docx` files to PDF
+- `requirements.txt`: Python dependencies
 
-- The agent will only answer questions using the retriever tool. If the answer is not found, it will respond:  
-  _"Sorry, that information is not currently available in the knowledge base."_
-- Make sure your vectorstore is up to date for best results.
+## Changes in this fork
+
+- Removed an API key that was hard-coded in `rag_pipeline.py`; keys are now read from `.env` only
+- Indexing and retrieval use the same embedding model (previously the index was built with one model and queried with another)
+- The vector store path no longer depends on the directory the app is started from
+- Importing `tool.py` no longer runs a test query on every start
+- The chatbot keeps conversation history, and the agent is built once instead of on every rerun
+- Rate-limited batches are retried during indexing instead of being skipped
+- The Streamlit app and the command-line agent share one agent definition
 
 ## License
 

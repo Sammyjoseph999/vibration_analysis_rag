@@ -1,32 +1,45 @@
 import os
-from langgraph.prebuilt import create_react_agent
-from langchain_openai import ChatOpenAI
-from tool import retriever_tool
+
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+
+from tool import build_retriever_tool
 
 load_dotenv()
 
+NOT_FOUND_MESSAGE = "Sorry, that information is not currently available in the knowledge base."
 
-# model = ChatOpenAI(model="gpt-4o-mini", api_key=os.geten v("OPENAI_API_KEY"), temperature=0.5)
-
-model = ChatAnthropic(
-    model="claude-3-haiku-20240307",
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-
-)
-
-agent = create_react_agent(
-    model=model,
-    tools=[retriever_tool],
-    prompt="You are a helpful assistant for agriculture. Use the following tools:",
+SYSTEM_PROMPT = (
+    "You are a helpful assistant for agriculture. "
+    "Answer only with information returned by the agriculture retriever tool. "
+    f'If the tool does not return the answer, reply exactly: "{NOT_FOUND_MESSAGE}"'
 )
 
 
-while True:
-    user_input = input("User:")
-    response = agent.stream({"messages": [{"role": "user", "content": user_input}]}, stream_mode="messages")
+def build_agent():
+    model = ChatOpenAI(model="gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.5)
+    return create_react_agent(model=model, tools=[build_retriever_tool()], prompt=SYSTEM_PROMPT)
 
-    for chunk, metadata in response:
-        if metadata["langgraph_node"] == "agent":
-            print(chunk.content, end="", flush=True)
+
+def stream_reply(agent, messages):
+    """Yield the assistant's reply to a list of chat messages, piece by piece."""
+    for chunk, metadata in agent.stream({"messages": messages}, stream_mode="messages"):
+        if metadata.get("langgraph_node") == "agent" and isinstance(chunk.content, str):
+            yield chunk.content
+
+
+if __name__ == "__main__":
+    agent = build_agent()
+    history = []
+    while True:
+        user_input = input("User: ")
+        if user_input.strip().lower() in {"exit", "quit"}:
+            break
+        history.append({"role": "user", "content": user_input})
+        reply = ""
+        for piece in stream_reply(agent, history):
+            print(piece, end="", flush=True)
+            reply += piece
+        print()
+        history.append({"role": "assistant", "content": reply})
